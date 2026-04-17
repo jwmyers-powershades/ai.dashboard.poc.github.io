@@ -415,3 +415,140 @@ body {
     .stat-value { font-size: 24px; }
     .submission-meta { gap: 8px; }
 }
+
+/* ===== STATUS PAGE ===== */
+
+.status-service-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 100%;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    text-decoration: none !important;
+    color: inherit !important;
+    display: flex;
+    flex-direction: column;
+}
+.status-service-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+
+.status-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 18px 10px;
+    gap: 12px;
+}
+
+.status-service-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+}
+
+.status-service-name { font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 1px; }
+.status-service-desc { font-size: 12px; color: #9ca3af; }
+
+.status-overall-desc {
+    padding: 4px 18px 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.status-components { padding: 0 18px 14px; flex: 1; }
+
+.status-component-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.status-component-row:last-child { border-bottom: none; }
+.status-component-name { color: #374151; }
+.status-component-dot { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; }
+
+.status-incidents {
+    padding: 10px 18px;
+    background: #fff7ed;
+    border-top: 1px solid #fed7aa;
+}
+.status-incident-title { font-size: 12px; font-weight: 600; color: #9a3412; margin-bottom: 4px; }
+.status-incident-item { font-size: 13px; color: #9a3412; line-height: 1.4; margin-bottom: 3px; }
+.status-incident-item:last-child { margin-bottom: 0; }
+
+.status-maintenance {
+    padding: 10px 18px;
+    background: #eff6ff;
+    border-top: 1px solid #bfdbfe;
+}
+.status-maintenance-title { font-size: 12px; font-weight: 600; color: #1e40af; margin-bottom: 4px; }
+.status-maintenance-item { font-size: 13px; color: #1e40af; }
+
+.status-card-footer {
+    padding: 10px 18px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fafafa;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: auto;
+}
+
+/* Status badge variants */
+.status-badge-ok          { background: #d1fae5; color: #065f46; }
+.status-badge-degraded    { background: #fef3c7; color: #92400e; }
+.status-badge-partial     { background: #ffedd5; color: #9a3412; }
+.status-badge-outage      { background: #fee2e2; color: #991b1b; }
+.status-badge-maintenance { background: #dbeafe; color: #1e40af; }
+.status-badge-unknown     { background: #f3f4f6; color: #6b7280; }
+
+/* Component dot colors */
+.dot-ok          { color: #10b981; }
+.dot-degraded    { color: #f59e0b; }
+.dot-partial     { color: #f97316; }
+.dot-outage      { color: #ef4444; }
+.dot-maintenance { color: #3b82f6; }
+.dot-unknown     { color: #9ca3af; }
+
+/* Overall banner */
+.status-banner {
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-weight: 600;
+    font-size: 15px;
+}
+.status-banner i { font-size: 22px; }
+.status-banner-sub { font-size: 13px; font-weight: 400; margin-left: 4px; opacity: 0.8; }
+
+/* Loading skeleton */
+.skeleton {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+    display: inline-block;
+}
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Spinning refresh icon */
+.spin { display: inline-block; animation: spin 0.8s linear infinite; }
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}

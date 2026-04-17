@@ -1,7 +1,51 @@
+const STATUS_SERVICES = [
+    {
+        id: 'claude',
+        name: 'Claude',
+        description: 'Anthropic AI Assistant',
+        statusUrl: 'https://status.claude.com',
+        apiUrl: 'https://status.claude.com/api/v2/summary.json',
+        icon: 'bi-robot',
+        iconBg: '#fdf4ff',
+        iconColor: '#9333ea'
+    },
+    {
+        id: 'cursor',
+        name: 'Cursor',
+        description: 'AI Code Editor',
+        statusUrl: 'https://status.cursor.com',
+        apiUrl: 'https://status.cursor.com/api/v2/summary.json',
+        icon: 'bi-cursor-text',
+        iconBg: '#eff6ff',
+        iconColor: '#2563eb'
+    },
+    {
+        id: 'chatgpt',
+        name: 'ChatGPT',
+        description: 'OpenAI Chat Interface',
+        statusUrl: 'https://status.chatgpt.com',
+        apiUrl: 'https://status.chatgpt.com/api/v2/summary.json',
+        icon: 'bi-chat-dots-fill',
+        iconBg: '#f0fdf4',
+        iconColor: '#059669'
+    },
+    {
+        id: 'lindy',
+        name: 'Lindy',
+        description: 'AI Automation Platform',
+        statusUrl: 'https://status.lindy.ai',
+        apiUrl: 'https://status.lindy.ai/api/v2/summary.json',
+        icon: 'bi-link-45deg',
+        iconBg: '#fff7ed',
+        iconColor: '#ea580c'
+    }
+];
+
 const App = {
-    currentSection: 'overview',
+    currentSection: 'status',
     isAuthenticated: false,
     currentFilter: 'pending',
+    statusInterval: null,
     COMMITTEE_PASSWORD: 'committee',
 
     init() {
@@ -10,7 +54,8 @@ const App = {
         this.setupSubmitForm();
         this.setupCommitteeAuth();
         this.setupCommitteeTabs();
-        this.renderSection('overview');
+        this.setupStatusRefreshBtn();
+        this.renderSection('status');
     },
 
     // ===== NAVIGATION =====
@@ -32,11 +77,18 @@ const App = {
     },
 
     navigate(section) {
+        // Stop auto-refresh when leaving status page
+        if (this.currentSection === 'status' && section !== 'status') {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
+        }
+
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.classList.toggle('active', link.dataset.section === section);
         });
 
         const titles = {
+            status:    'Status',
             overview:  'Overview',
             tools:     'Approved Tools',
             models:    'AI Models',
@@ -61,6 +113,7 @@ const App = {
 
     renderSection(section) {
         const map = {
+            status:    () => this.renderStatus(),
             overview:  () => this.renderOverview(),
             tools:     () => this.renderTools(),
             models:    () => this.renderModels(),
@@ -83,6 +136,244 @@ const App = {
         });
     },
 
+    // ===== STATUS =====
+
+    setupStatusRefreshBtn() {
+        document.getElementById('status-refresh-btn')?.addEventListener('click', () => {
+            this.renderStatus();
+        });
+    },
+
+    renderStatus() {
+        const cardsEl = document.getElementById('status-cards');
+        if (!cardsEl) return;
+
+        // Show loading skeletons immediately
+        cardsEl.innerHTML = STATUS_SERVICES.map(svc => `
+            <div class="col-md-6" id="status-card-${svc.id}">
+                <div class="status-service-card" style="pointer-events:none;">
+                    <div class="status-card-top">
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="status-service-icon" style="background:${svc.iconBg};color:${svc.iconColor};">
+                                <i class="bi ${svc.icon}"></i>
+                            </div>
+                            <div>
+                                <div class="status-service-name">${svc.name}</div>
+                                <div class="status-service-desc">${svc.description}</div>
+                            </div>
+                        </div>
+                        <span class="skeleton" style="width:90px;height:24px;border-radius:20px;"></span>
+                    </div>
+                    <div class="status-overall-desc">
+                        <span class="skeleton" style="width:55%;height:15px;"></span>
+                    </div>
+                    <div class="status-components">
+                        ${[1,2,3].map(() => `
+                            <div class="status-component-row">
+                                <span class="skeleton" style="width:38%;height:13px;"></span>
+                                <span class="skeleton" style="width:75px;height:13px;"></span>
+                            </div>`).join('')}
+                    </div>
+                    <div class="status-card-footer">
+                        <span class="skeleton" style="width:110px;height:12px;"></span>
+                    </div>
+                </div>
+            </div>`).join('');
+
+        document.getElementById('status-overall-banner').innerHTML = '';
+
+        // Spin the refresh button
+        const btn = document.getElementById('status-refresh-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin"></i>Refreshing...';
+        }
+
+        // Fetch each service individually, update cards as they resolve
+        const results = new Array(STATUS_SERVICES.length).fill(undefined);
+        let settled = 0;
+
+        STATUS_SERVICES.forEach((svc, i) => {
+            this.fetchServiceStatus(svc).then(data => {
+                results[i] = data;
+                settled++;
+
+                // Replace this card's skeleton with real data
+                const wrap = document.getElementById(`status-card-${svc.id}`);
+                if (wrap) wrap.outerHTML = this.buildStatusCard(svc, data);
+
+                // Once all have settled, update banner + timestamp
+                if (settled === STATUS_SERVICES.length) {
+                    this.renderStatusBanner(results);
+
+                    const lastEl = document.getElementById('status-last-refreshed');
+                    if (lastEl) {
+                        lastEl.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    const freshBtn = document.getElementById('status-refresh-btn');
+                    if (freshBtn) {
+                        freshBtn.disabled = false;
+                        freshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh';
+                    }
+                }
+            });
+        });
+
+        // Auto-refresh every 60 s while on this page
+        clearInterval(this.statusInterval);
+        this.statusInterval = setInterval(() => {
+            if (this.currentSection === 'status') this.renderStatus();
+        }, 60000);
+    },
+
+    async fetchServiceStatus(svc) {
+        try {
+            const res = await fetch(svc.apiUrl, {
+                mode: 'cors',
+                headers: { 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(8000)
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch {
+            return null;
+        }
+    },
+
+    buildStatusCard(svc, data) {
+        const indicator = data?.status?.indicator ?? null;
+        const desc      = data?.status?.description ?? (data ? 'Status available' : 'Could not fetch status');
+        const badge     = this.statusBadge(indicator);
+
+        // Components: skip group headers and blanks, cap at 6
+        const allComponents = (data?.components ?? []).filter(c => !c.group && c.name);
+        const components    = allComponents.slice(0, 6);
+        const extra         = allComponents.length - components.length;
+
+        // Active incidents (exclude resolved/postmortem)
+        const incidents = (data?.incidents ?? [])
+            .filter(i => i.status !== 'resolved' && i.status !== 'postmortem');
+
+        // Upcoming maintenance (exclude completed)
+        const maintenances = (data?.scheduled_maintenances ?? [])
+            .filter(m => m.status !== 'completed');
+
+        const updatedAt = data?.page?.updated_at ? this.fmtTime(data.page.updated_at) : '';
+
+        return `
+            <div class="col-md-6" id="status-card-${svc.id}">
+                <a href="${svc.statusUrl}" target="_blank" rel="noopener noreferrer" class="status-service-card">
+                    <div class="status-card-top">
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="status-service-icon" style="background:${svc.iconBg};color:${svc.iconColor};">
+                                <i class="bi ${svc.icon}"></i>
+                            </div>
+                            <div>
+                                <div class="status-service-name">${svc.name}</div>
+                                <div class="status-service-desc">${svc.description}</div>
+                            </div>
+                        </div>
+                        <span class="badge ${badge.cls} px-2 py-1" style="font-size:11px;white-space:nowrap;">
+                            <i class="bi ${badge.icon} me-1"></i>${badge.label}
+                        </span>
+                    </div>
+                    <div class="status-overall-desc" style="color:${badge.textColor};">${this.esc(desc)}</div>
+                    ${components.length > 0 ? `
+                        <div class="status-components">
+                            ${components.map(c => {
+                                const cs = this.componentStatus(c.status);
+                                return `
+                                    <div class="status-component-row">
+                                        <span class="status-component-name">${this.esc(c.name)}</span>
+                                        <span class="status-component-dot ${cs.dotCls}">
+                                            <i class="bi bi-circle-fill" style="font-size:7px;"></i>${cs.label}
+                                        </span>
+                                    </div>`;
+                            }).join('')}
+                            ${extra > 0 ? `<div class="text-muted mt-1" style="font-size:12px;">+${extra} more components</div>` : ''}
+                        </div>` : `
+                        <div class="status-components">
+                            ${data === null ? `<p class="text-muted mb-0" style="font-size:13px;">Status API unreachable — click to check manually.</p>` : ''}
+                        </div>`}
+                    ${incidents.length > 0 ? `
+                        <div class="status-incidents">
+                            <div class="status-incident-title"><i class="bi bi-exclamation-triangle me-1"></i>Active Incidents</div>
+                            ${incidents.slice(0, 3).map(inc => `
+                                <div class="status-incident-item">
+                                    <i class="bi bi-dot"></i>${this.esc(inc.name)}
+                                    <span style="font-size:11px;opacity:.75;">(${this.esc(inc.status)})</span>
+                                </div>`).join('')}
+                            ${incidents.length > 3 ? `<div style="font-size:12px;color:#9a3412;">+${incidents.length - 3} more</div>` : ''}
+                        </div>` : ''}
+                    ${maintenances.length > 0 ? `
+                        <div class="status-maintenance">
+                            <div class="status-maintenance-title"><i class="bi bi-tools me-1"></i>Scheduled Maintenance</div>
+                            ${maintenances.slice(0, 2).map(m => `
+                                <div class="status-maintenance-item">${this.esc(m.name)}</div>`).join('')}
+                        </div>` : ''}
+                    <div class="status-card-footer">
+                        <span>View full status page <i class="bi bi-box-arrow-up-right ms-1"></i></span>
+                        ${updatedAt ? `<span>Updated ${updatedAt}</span>` : ''}
+                    </div>
+                </a>
+            </div>`;
+    },
+
+    renderStatusBanner(results) {
+        const el = document.getElementById('status-overall-banner');
+        if (!el) return;
+
+        const indicators = results.map(r => r?.status?.indicator ?? null);
+        let bg, color, icon, text, sub;
+
+        if (indicators.every(i => i === null)) {
+            [bg, color, icon, text, sub] = ['#f3f4f6', '#6b7280', 'bi-question-circle-fill',
+                'Status Unavailable', '— could not connect to status APIs'];
+        } else if (indicators.some(i => i === 'critical')) {
+            [bg, color, icon, text, sub] = ['#fee2e2', '#991b1b', 'bi-x-circle-fill',
+                'Major Outage Detected', '— one or more services are experiencing a major outage'];
+        } else if (indicators.some(i => i === 'major')) {
+            [bg, color, icon, text, sub] = ['#ffedd5', '#9a3412', 'bi-exclamation-triangle-fill',
+                'Partial Outage', '— one or more services have a partial outage'];
+        } else if (indicators.some(i => i === 'minor')) {
+            [bg, color, icon, text, sub] = ['#fef3c7', '#92400e', 'bi-exclamation-circle-fill',
+                'Degraded Performance', '— one or more services are running with degraded performance'];
+        } else {
+            [bg, color, icon, text, sub] = ['#d1fae5', '#065f46', 'bi-check-circle-fill',
+                'All Systems Operational', '— all monitored services are running normally'];
+        }
+
+        el.innerHTML = `
+            <div class="status-banner" style="background:${bg};color:${color};">
+                <i class="bi ${icon}"></i>
+                <div>
+                    ${text}<span class="status-banner-sub">${sub}</span>
+                </div>
+            </div>`;
+    },
+
+    statusBadge(indicator) {
+        const map = {
+            none:     { cls: 'status-badge-ok',          icon: 'bi-check-circle-fill',           label: 'Operational',     textColor: '#065f46' },
+            minor:    { cls: 'status-badge-degraded',    icon: 'bi-exclamation-circle-fill',     label: 'Degraded',        textColor: '#92400e' },
+            major:    { cls: 'status-badge-partial',     icon: 'bi-exclamation-triangle-fill',   label: 'Partial Outage',  textColor: '#9a3412' },
+            critical: { cls: 'status-badge-outage',      icon: 'bi-x-circle-fill',               label: 'Major Outage',    textColor: '#991b1b' }
+        };
+        return map[indicator] ?? { cls: 'status-badge-unknown', icon: 'bi-question-circle', label: 'Unknown', textColor: '#6b7280' };
+    },
+
+    componentStatus(status) {
+        const map = {
+            operational:          { dotCls: 'dot-ok',          label: 'Operational'  },
+            degraded_performance: { dotCls: 'dot-degraded',    label: 'Degraded'     },
+            partial_outage:       { dotCls: 'dot-partial',     label: 'Partial Outage'},
+            major_outage:         { dotCls: 'dot-outage',      label: 'Major Outage' },
+            under_maintenance:    { dotCls: 'dot-maintenance', label: 'Maintenance'  }
+        };
+        return map[status] ?? { dotCls: 'dot-unknown', label: status || 'Unknown' };
+    },
+
     // ===== OVERVIEW =====
 
     renderOverview() {
@@ -101,7 +392,6 @@ const App = {
         document.getElementById('stat-accepted').textContent = accepted;
         this.updatePendingBadge(pending);
 
-        // Recent submissions list
         const recentEl = document.getElementById('recent-submissions-list');
         if (recentEl) {
             const recent = submissions.slice(0, 5);
@@ -117,7 +407,6 @@ const App = {
                     </div>`).join('');
         }
 
-        // Status chart
         const chartEl = document.getElementById('status-chart');
         if (chartEl) {
             const total = submissions.length || 1;
@@ -173,7 +462,6 @@ const App = {
         const searchInput = document.getElementById('tools-search');
         if (searchInput) {
             searchInput.value = '';
-            // Remove old listener by cloning
             const fresh = searchInput.cloneNode(true);
             searchInput.parentNode.replaceChild(fresh, searchInput);
             fresh.addEventListener('input', () => {
@@ -258,26 +546,9 @@ const App = {
             }).join('');
         }
 
-        const badgeClass = {
-            active:     'badge-model-active',
-            restricted: 'badge-model-restricted',
-            review:     'badge-model-review',
-            deprecated: 'badge-model-deprecated'
-        };
-
-        const badgeLabel = {
-            active:     'Active',
-            restricted: 'Restricted',
-            review:     'Under Review',
-            deprecated: 'Deprecated'
-        };
-
-        const badgeIcon = {
-            active:     'bi-check-circle-fill',
-            restricted: 'bi-exclamation-circle-fill',
-            review:     'bi-clock-fill',
-            deprecated: 'bi-x-circle-fill'
-        };
+        const badgeClass = { active: 'badge-model-active', restricted: 'badge-model-restricted', review: 'badge-model-review', deprecated: 'badge-model-deprecated' };
+        const badgeLabel = { active: 'Active', restricted: 'Restricted', review: 'Under Review', deprecated: 'Deprecated' };
+        const badgeIcon  = { active: 'bi-check-circle-fill', restricted: 'bi-exclamation-circle-fill', review: 'bi-clock-fill', deprecated: 'bi-x-circle-fill' };
 
         const listEl = document.getElementById('models-list');
         if (!listEl) return;
@@ -296,15 +567,12 @@ const App = {
                     </div>
                     <p class="text-muted mb-2" style="font-size:13px;">${this.esc(m.description)}</p>
                     <div class="model-uses-title">Approved Uses</div>
-                    ${m.approvedUses.map(u => `
-                        <div class="model-use-item"><i class="bi bi-check-lg"></i>${this.esc(u)}</div>`).join('')}
+                    ${m.approvedUses.map(u => `<div class="model-use-item"><i class="bi bi-check-lg"></i>${this.esc(u)}</div>`).join('')}
                     ${m.restrictions ? `
                         <div class="model-restrictions">
                             <i class="bi bi-shield-exclamation me-1"></i><strong>Restrictions:</strong> ${this.esc(m.restrictions)}
                         </div>` : ''}
-                    <div class="model-meta-row mt-2">
-                        <i class="bi bi-database"></i><span>${this.esc(m.dataClassification)}</span>
-                    </div>
+                    <div class="model-meta-row mt-2"><i class="bi bi-database"></i><span>${this.esc(m.dataClassification)}</span></div>
                     ${m.approvedDate ? `
                         <div class="model-meta-row">
                             <i class="bi bi-calendar-check"></i><span>Approved ${this.fmtDateShort(m.approvedDate)}</span>
@@ -326,10 +594,7 @@ const App = {
 
         form.addEventListener('submit', e => {
             e.preventDefault();
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return;
-            }
+            if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
 
             const val = id => document.getElementById(id)?.value.trim() || '';
 
@@ -411,9 +676,7 @@ const App = {
 
     renderCommittee() {
         this.updateTabCounts();
-        if (this.isAuthenticated) {
-            this.renderCommitteeSubmissions(this.currentFilter);
-        }
+        if (this.isAuthenticated) this.renderCommitteeSubmissions(this.currentFilter);
     },
 
     updateTabCounts() {
@@ -433,14 +696,9 @@ const App = {
     },
 
     updatePendingBadge(count) {
-        if (count === undefined) {
-            count = DataStore.getSubmissions().filter(s => s.status === 'pending').length;
-        }
+        if (count === undefined) count = DataStore.getSubmissions().filter(s => s.status === 'pending').length;
         const badge = document.getElementById('pending-badge');
-        if (badge) {
-            badge.textContent = count;
-            badge.style.display = count > 0 ? '' : 'none';
-        }
+        if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
     },
 
     renderCommitteeSubmissions(filter) {
@@ -535,33 +793,29 @@ const App = {
         if (!submission) return;
 
         const config = {
-            accepted: { title: 'Accept Submission',    btnClass: 'btn-success',          btnText: 'Confirm Accept',  notesLabel: 'Acceptance Notes / Next Steps' },
-            deferred: { title: 'Defer Submission',     btnClass: 'btn-info text-white',  btnText: 'Confirm Defer',   notesLabel: 'Reason for Deferral' },
-            declined: { title: 'Decline Submission',   btnClass: 'btn-danger',           btnText: 'Confirm Decline', notesLabel: 'Reason for Declining' },
-            pending:  { title: 'Reset to Pending',     btnClass: 'btn-secondary',        btnText: 'Confirm Reset',   notesLabel: 'Notes (optional)' }
+            accepted: { title: 'Accept Submission',  btnClass: 'btn-success',         btnText: 'Confirm Accept',  notesLabel: 'Acceptance Notes / Next Steps' },
+            deferred: { title: 'Defer Submission',   btnClass: 'btn-info text-white', btnText: 'Confirm Defer',   notesLabel: 'Reason for Deferral' },
+            declined: { title: 'Decline Submission', btnClass: 'btn-danger',          btnText: 'Confirm Decline', notesLabel: 'Reason for Declining' },
+            pending:  { title: 'Reset to Pending',   btnClass: 'btn-secondary',       btnText: 'Confirm Reset',   notesLabel: 'Notes (optional)' }
         }[action] || {};
 
-        document.getElementById('reviewModalTitle').textContent     = config.title;
-        document.getElementById('review-submission-title').textContent = submission.title;
-        document.getElementById('review-notes-label').textContent   = config.notesLabel;
-        document.getElementById('review-notes').value               = '';
-        document.getElementById('reviewer-name').value              = '';
+        document.getElementById('reviewModalTitle').textContent          = config.title;
+        document.getElementById('review-submission-title').textContent   = submission.title;
+        document.getElementById('review-notes-label').textContent        = config.notesLabel;
+        document.getElementById('review-notes').value                    = '';
+        document.getElementById('reviewer-name').value                   = '';
         document.getElementById('reviewer-name').classList.remove('is-invalid');
 
         const confirmBtn = document.getElementById('review-confirm-btn');
         confirmBtn.className = `btn ${config.btnClass}`;
         confirmBtn.textContent = config.btnText;
 
-        // Swap listener by cloning to avoid stacking handlers
         const fresh = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(fresh, confirmBtn);
 
         fresh.addEventListener('click', () => {
             const reviewerName = document.getElementById('reviewer-name').value.trim();
-            if (!reviewerName) {
-                document.getElementById('reviewer-name').classList.add('is-invalid');
-                return;
-            }
+            if (!reviewerName) { document.getElementById('reviewer-name').classList.add('is-invalid'); return; }
             document.getElementById('reviewer-name').classList.remove('is-invalid');
 
             DataStore.updateSubmission(submissionId, {
@@ -583,11 +837,8 @@ const App = {
     esc(str) {
         if (!str) return '';
         return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     },
 
     fmtDate(iso) {
@@ -600,6 +851,12 @@ const App = {
         if (!str) return '';
         try { return new Date(str).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); }
         catch { return str; }
+    },
+
+    fmtTime(iso) {
+        if (!iso) return '';
+        try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        catch { return ''; }
     }
 };
 
