@@ -34,7 +34,8 @@ const STATUS_SERVICES = [
         name: 'Lindy',
         description: 'AI Automation Platform',
         statusUrl: 'https://status.lindy.ai',
-        apiUrl: 'https://status.lindy.ai/api/v2/summary.json',
+        apiUrl: null,
+        scrapeUrl: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://status.lindy.ai'),
         icon: 'bi-link-45deg',
         iconBg: '#fff7ed',
         iconColor: '#ea580c'
@@ -235,6 +236,9 @@ const App = {
     },
 
     async fetchServiceStatus(svc) {
+        if (!svc.apiUrl && svc.scrapeUrl) {
+            return this.scrapeServiceStatus(svc);
+        }
         try {
             const res = await fetch(svc.apiUrl, {
                 mode: 'cors',
@@ -246,6 +250,42 @@ const App = {
         } catch {
             return null;
         }
+    },
+
+    async scrapeServiceStatus(svc) {
+        try {
+            const res = await fetch(svc.scrapeUrl, { signal: AbortSignal.timeout(10000) });
+            if (!res.ok) return null;
+            const html = await res.text();
+            return this.parseStatusFromHtml(html);
+        } catch {
+            return null;
+        }
+    },
+
+    parseStatusFromHtml(html) {
+        // Strip scripts/styles to avoid keyword matches in code
+        var text = html
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .toLowerCase();
+
+        // Check most severe first
+        if (/major outage|complete outage|service (is |is currently )?down/.test(text)) {
+            return { status: { indicator: 'critical', description: 'Major Outage' }, components: [], incidents: [], scheduled_maintenances: [], page: { updated_at: new Date().toISOString() } };
+        }
+        if (/partial outage/.test(text)) {
+            return { status: { indicator: 'major', description: 'Partial Outage' }, components: [], incidents: [], scheduled_maintenances: [], page: { updated_at: new Date().toISOString() } };
+        }
+        if (/degraded performance|performance issues|elevated error/.test(text)) {
+            return { status: { indicator: 'minor', description: 'Degraded Performance' }, components: [], incidents: [], scheduled_maintenances: [], page: { updated_at: new Date().toISOString() } };
+        }
+        // "investigating" only counts if there's no adjacent "no incidents" text
+        if (/investigating/.test(text) && !/no incidents/i.test(text)) {
+            return { status: { indicator: 'minor', description: 'Incident Under Investigation' }, components: [], incidents: [], scheduled_maintenances: [], page: { updated_at: new Date().toISOString() } };
+        }
+        // Default: operational
+        return { status: { indicator: 'none', description: 'All Systems Operational' }, components: [], incidents: [], scheduled_maintenances: [], page: { updated_at: new Date().toISOString() } };
     },
 
     buildStatusCard(svc, data) {
