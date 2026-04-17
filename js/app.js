@@ -25,7 +25,8 @@ const STATUS_SERVICES = [
         description: 'OpenAI Chat Interface',
         statusUrl: 'https://status.openai.com',
         apiUrl: null,
-        scrapeUrl: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://status.openai.com/feed.atom'),
+        feedUrl: 'https://status.openai.com/feed.atom',
+        scrapeUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://status.openai.com/feed.atom'),
         isFeed: true,
         icon: 'bi-chat-dots-fill',
         iconBg: '#f0fdf4',
@@ -37,7 +38,7 @@ const STATUS_SERVICES = [
         description: 'AI Automation Platform',
         statusUrl: 'https://status.lindy.ai',
         apiUrl: null,
-        scrapeUrl: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://status.lindy.ai'),
+        scrapeUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://status.lindy.ai'),
         icon: 'bi-link-45deg',
         iconBg: '#fff7ed',
         iconColor: '#ea580c'
@@ -255,11 +256,29 @@ const App = {
     },
 
     async scrapeServiceStatus(svc) {
+        // For feeds: try a direct CORS fetch first — many CDN-served feeds allow it.
+        if (svc.isFeed && svc.feedUrl) {
+            try {
+                const r = await fetch(svc.feedUrl, { signal: AbortSignal.timeout(6000) });
+                if (r.ok) {
+                    const text = await r.text();
+                    const result = this.parseFeedStatus(text);
+                    if (result) return result;
+                }
+            } catch { /* fall through to proxy */ }
+        }
+
+        // Proxy fallback — allorigins.win/get wraps response in JSON so we can
+        // verify the upstream HTTP code before attempting to parse the body.
         try {
-            const res = await fetch(svc.scrapeUrl, { signal: AbortSignal.timeout(10000) });
-            if (!res.ok) return null;
-            const text = await res.text();
-            return svc.isFeed ? this.parseFeedStatus(text) : this.parseStatusFromHtml(text);
+            const r = await fetch(svc.scrapeUrl, { signal: AbortSignal.timeout(12000) });
+            if (!r.ok) return null;
+            const wrapper = await r.json();
+            if (!wrapper || !wrapper.contents) return null;
+            if (wrapper.status && wrapper.status.http_code !== 200) return null;
+            return svc.isFeed
+                ? this.parseFeedStatus(wrapper.contents)
+                : this.parseStatusFromHtml(wrapper.contents);
         } catch {
             return null;
         }
