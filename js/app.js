@@ -23,8 +23,10 @@ const STATUS_SERVICES = [
         id: 'chatgpt',
         name: 'ChatGPT',
         description: 'OpenAI Chat Interface',
-        statusUrl: 'https://status.chatgpt.com',
-        apiUrl: 'https://status.chatgpt.com/api/v2/summary.json',
+        statusUrl: 'https://status.openai.com',
+        apiUrl: null,
+        scrapeUrl: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://status.openai.com/feed.atom'),
+        isFeed: true,
         icon: 'bi-chat-dots-fill',
         iconBg: '#f0fdf4',
         iconColor: '#059669'
@@ -256,9 +258,69 @@ const App = {
         try {
             const res = await fetch(svc.scrapeUrl, { signal: AbortSignal.timeout(10000) });
             if (!res.ok) return null;
-            const html = await res.text();
-            return this.parseStatusFromHtml(html);
+            const text = await res.text();
+            return svc.isFeed ? this.parseFeedStatus(text) : this.parseStatusFromHtml(text);
         } catch {
+            return null;
+        }
+    },
+
+    parseFeedStatus(feedText) {
+        try {
+            var xml  = new DOMParser().parseFromString(feedText, 'text/xml');
+            var isAtom = xml.querySelector('feed') !== null;
+            var items  = Array.from(xml.querySelectorAll(isAtom ? 'entry' : 'item'));
+
+            var now   = Date.now();
+            var dayMs = 24 * 60 * 60 * 1000;
+
+            // Keep only items published in the last 24 h
+            var recent = items.filter(function(item) {
+                var dateEl = item.querySelector(isAtom ? 'updated' : 'pubDate');
+                if (!dateEl) return false;
+                var d = new Date(dateEl.textContent.trim());
+                return !isNaN(d.getTime()) && (now - d.getTime()) < dayMs;
+            });
+
+            // Active = recent AND title does not begin with "Resolved" or "Scheduled"
+            var active = recent.filter(function(item) {
+                var t = (item.querySelector('title') || {}).textContent || '';
+                return !/^\s*(resolved|scheduled)/i.test(t);
+            });
+
+            var indicator   = 'none';
+            var description = 'All Systems Operational';
+
+            if (active.length > 0) {
+                var titles = active.map(function(item) {
+                    return ((item.querySelector('title') || {}).textContent || '').toLowerCase();
+                });
+                if (titles.some(function(t) { return /major outage|complete outage|service down/.test(t); })) {
+                    indicator = 'critical'; description = 'Major Outage';
+                } else if (titles.some(function(t) { return /partial outage/.test(t); })) {
+                    indicator = 'major'; description = 'Partial Outage';
+                } else if (titles.some(function(t) { return /degraded/.test(t); })) {
+                    indicator = 'minor'; description = 'Degraded Performance';
+                } else {
+                    indicator = 'minor'; description = 'Incident In Progress';
+                }
+            }
+
+            var incidents = active.slice(0, 3).map(function(item) {
+                return {
+                    name: ((item.querySelector('title') || {}).textContent || 'Active Incident').trim(),
+                    status: 'active'
+                };
+            });
+
+            return {
+                status: { indicator: indicator, description: description },
+                components: [],
+                incidents: incidents,
+                scheduled_maintenances: [],
+                page: { updated_at: new Date().toISOString() }
+            };
+        } catch (e) {
             return null;
         }
     },
