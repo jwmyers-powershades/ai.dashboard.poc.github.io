@@ -418,6 +418,13 @@ body {
 
 /* ===== STATUS PAGE ===== */
 
+.status-card-loading {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
 .status-service-card {
     background: white;
     border: 1px solid var(--border-color);

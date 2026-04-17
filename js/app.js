@@ -148,83 +148,90 @@ const App = {
         const cardsEl = document.getElementById('status-cards');
         if (!cardsEl) return;
 
-        // Show loading skeletons immediately
-        cardsEl.innerHTML = STATUS_SERVICES.map(svc => `
-            <div class="col-md-6" id="status-card-${svc.id}">
-                <div class="status-service-card" style="pointer-events:none;">
-                    <div class="status-card-top">
-                        <div class="d-flex gap-3 align-items-center">
-                            <div class="status-service-icon" style="background:${svc.iconBg};color:${svc.iconColor};">
-                                <i class="bi ${svc.icon}"></i>
-                            </div>
-                            <div>
-                                <div class="status-service-name">${svc.name}</div>
-                                <div class="status-service-desc">${svc.description}</div>
-                            </div>
-                        </div>
-                        <span class="skeleton" style="width:90px;height:24px;border-radius:20px;"></span>
-                    </div>
-                    <div class="status-overall-desc">
-                        <span class="skeleton" style="width:55%;height:15px;"></span>
-                    </div>
-                    <div class="status-components">
-                        ${[1,2,3].map(() => `
-                            <div class="status-component-row">
-                                <span class="skeleton" style="width:38%;height:13px;"></span>
-                                <span class="skeleton" style="width:75px;height:13px;"></span>
-                            </div>`).join('')}
-                    </div>
-                    <div class="status-card-footer">
-                        <span class="skeleton" style="width:110px;height:12px;"></span>
-                    </div>
-                </div>
-            </div>`).join('');
+        // Show spinner placeholders while fetching
+        cardsEl.innerHTML = STATUS_SERVICES.map(svc => [
+            '<div class="col-md-6">',
+            '  <div class="status-service-card" style="pointer-events:none;min-height:120px;">',
+            '    <div class="status-card-top">',
+            '      <div class="d-flex gap-3 align-items-center">',
+            '        <div class="status-service-icon" style="background:' + svc.iconBg + ';color:' + svc.iconColor + ';">',
+            '          <i class="bi ' + svc.icon + '"></i>',
+            '        </div>',
+            '        <div>',
+            '          <div class="status-service-name">' + svc.name + '</div>',
+            '          <div class="status-service-desc">' + svc.description + '</div>',
+            '        </div>',
+            '      </div>',
+            '      <div class="spinner-border spinner-border-sm text-secondary ms-auto" role="status"></div>',
+            '    </div>',
+            '    <div class="status-overall-desc text-muted">Checking status\u2026</div>',
+            '  </div>',
+            '</div>'
+        ].join('\n')).join('\n');
 
-        document.getElementById('status-overall-banner').innerHTML = '';
+        const bannerEl = document.getElementById('status-overall-banner');
+        if (bannerEl) bannerEl.innerHTML = '';
 
-        // Spin the refresh button
         const btn = document.getElementById('status-refresh-btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin"></i>Refreshing...';
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin"></i>Refreshing\u2026';
         }
 
-        // Fetch each service individually, update cards as they resolve
-        const results = new Array(STATUS_SERVICES.length).fill(undefined);
-        let settled = 0;
+        // Fetch all in parallel; render once every promise has settled
+        Promise.allSettled(STATUS_SERVICES.map(svc => this.fetchServiceStatus(svc)))
+            .then(settled => {
+                const dataArr = settled.map(r => r.status === 'fulfilled' ? r.value : null);
 
-        STATUS_SERVICES.forEach((svc, i) => {
-            this.fetchServiceStatus(svc).then(data => {
-                results[i] = data;
-                settled++;
-
-                // Replace this card's skeleton with real data
-                const wrap = document.getElementById(`status-card-${svc.id}`);
-                if (wrap) wrap.outerHTML = this.buildStatusCard(svc, data);
-
-                // Once all have settled, update banner + timestamp
-                if (settled === STATUS_SERVICES.length) {
-                    this.renderStatusBanner(results);
-
-                    const lastEl = document.getElementById('status-last-refreshed');
-                    if (lastEl) {
-                        lastEl.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    }
-
-                    const freshBtn = document.getElementById('status-refresh-btn');
-                    if (freshBtn) {
-                        freshBtn.disabled = false;
-                        freshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh';
+                let html = '';
+                for (let i = 0; i < STATUS_SERVICES.length; i++) {
+                    try {
+                        html += this.buildStatusCard(STATUS_SERVICES[i], dataArr[i]);
+                    } catch (e) {
+                        html += this.buildErrorCard(STATUS_SERVICES[i]);
                     }
                 }
+                cardsEl.innerHTML = html;
+
+                this.renderStatusBanner(dataArr);
+
+                const lastEl = document.getElementById('status-last-refreshed');
+                if (lastEl) {
+                    lastEl.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+
+                const freshBtn = document.getElementById('status-refresh-btn');
+                if (freshBtn) {
+                    freshBtn.disabled = false;
+                    freshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh';
+                }
             });
-        });
 
         // Auto-refresh every 60 s while on this page
         clearInterval(this.statusInterval);
         this.statusInterval = setInterval(() => {
             if (this.currentSection === 'status') this.renderStatus();
         }, 60000);
+    },
+
+    buildErrorCard(svc) {
+        return [
+            '<div class="col-md-6">',
+            '  <a href="' + svc.statusUrl + '" target="_blank" rel="noopener noreferrer" class="status-service-card">',
+            '    <div class="status-card-top">',
+            '      <div class="d-flex gap-3 align-items-center">',
+            '        <div class="status-service-icon" style="background:' + svc.iconBg + ';color:' + svc.iconColor + ';">',
+            '          <i class="bi ' + svc.icon + '"></i>',
+            '        </div>',
+            '        <div><div class="status-service-name">' + svc.name + '</div><div class="status-service-desc">' + svc.description + '</div></div>',
+            '      </div>',
+            '      <span class="badge status-badge-unknown px-2 py-1" style="font-size:11px;">Unknown</span>',
+            '    </div>',
+            '    <div class="status-overall-desc text-muted">Status unavailable \u2014 click to check manually.</div>',
+            '    <div class="status-card-footer"><span>View full status page <i class="bi bi-box-arrow-up-right ms-1"></i></span></div>',
+            '  </a>',
+            '</div>'
+        ].join('\n');
     },
 
     async fetchServiceStatus(svc) {
@@ -242,82 +249,103 @@ const App = {
     },
 
     buildStatusCard(svc, data) {
-        const indicator = data?.status?.indicator ?? null;
-        const desc      = data?.status?.description ?? (data ? 'Status available' : 'Could not fetch status');
+        const indicator = data && data.status ? data.status.indicator : null;
+        const desc      = (data && data.status && data.status.description)
+                            ? data.status.description
+                            : (data ? 'Status available' : 'Could not fetch status');
         const badge     = this.statusBadge(indicator);
 
-        // Components: skip group headers and blanks, cap at 6
-        const allComponents = (data?.components ?? []).filter(c => !c.group && c.name);
-        const components    = allComponents.slice(0, 6);
-        const extra         = allComponents.length - components.length;
+        const allComponents = data && Array.isArray(data.components)
+            ? data.components.filter(function(c) { return !c.group && c.name; })
+            : [];
+        const components = allComponents.slice(0, 6);
+        const extra      = allComponents.length - components.length;
 
-        // Active incidents (exclude resolved/postmortem)
-        const incidents = (data?.incidents ?? [])
-            .filter(i => i.status !== 'resolved' && i.status !== 'postmortem');
+        const incidents = data && Array.isArray(data.incidents)
+            ? data.incidents.filter(function(i) { return i.status !== 'resolved' && i.status !== 'postmortem'; })
+            : [];
 
-        // Upcoming maintenance (exclude completed)
-        const maintenances = (data?.scheduled_maintenances ?? [])
-            .filter(m => m.status !== 'completed');
+        const maintenances = data && Array.isArray(data.scheduled_maintenances)
+            ? data.scheduled_maintenances.filter(function(m) { return m.status !== 'completed'; })
+            : [];
 
-        const updatedAt = data?.page?.updated_at ? this.fmtTime(data.page.updated_at) : '';
+        const updatedAt = (data && data.page && data.page.updated_at) ? this.fmtTime(data.page.updated_at) : '';
 
-        return `
-            <div class="col-md-6" id="status-card-${svc.id}">
-                <a href="${svc.statusUrl}" target="_blank" rel="noopener noreferrer" class="status-service-card">
-                    <div class="status-card-top">
-                        <div class="d-flex gap-3 align-items-center">
-                            <div class="status-service-icon" style="background:${svc.iconBg};color:${svc.iconColor};">
-                                <i class="bi ${svc.icon}"></i>
-                            </div>
-                            <div>
-                                <div class="status-service-name">${svc.name}</div>
-                                <div class="status-service-desc">${svc.description}</div>
-                            </div>
-                        </div>
-                        <span class="badge ${badge.cls} px-2 py-1" style="font-size:11px;white-space:nowrap;">
-                            <i class="bi ${badge.icon} me-1"></i>${badge.label}
-                        </span>
-                    </div>
-                    <div class="status-overall-desc" style="color:${badge.textColor};">${this.esc(desc)}</div>
-                    ${components.length > 0 ? `
-                        <div class="status-components">
-                            ${components.map(c => {
-                                const cs = this.componentStatus(c.status);
-                                return `
-                                    <div class="status-component-row">
-                                        <span class="status-component-name">${this.esc(c.name)}</span>
-                                        <span class="status-component-dot ${cs.dotCls}">
-                                            <i class="bi bi-circle-fill" style="font-size:7px;"></i>${cs.label}
-                                        </span>
-                                    </div>`;
-                            }).join('')}
-                            ${extra > 0 ? `<div class="text-muted mt-1" style="font-size:12px;">+${extra} more components</div>` : ''}
-                        </div>` : `
-                        <div class="status-components">
-                            ${data === null ? `<p class="text-muted mb-0" style="font-size:13px;">Status API unreachable — click to check manually.</p>` : ''}
-                        </div>`}
-                    ${incidents.length > 0 ? `
-                        <div class="status-incidents">
-                            <div class="status-incident-title"><i class="bi bi-exclamation-triangle me-1"></i>Active Incidents</div>
-                            ${incidents.slice(0, 3).map(inc => `
-                                <div class="status-incident-item">
-                                    <i class="bi bi-dot"></i>${this.esc(inc.name)}
-                                    <span style="font-size:11px;opacity:.75;">(${this.esc(inc.status)})</span>
-                                </div>`).join('')}
-                            ${incidents.length > 3 ? `<div style="font-size:12px;color:#9a3412;">+${incidents.length - 3} more</div>` : ''}
-                        </div>` : ''}
-                    ${maintenances.length > 0 ? `
-                        <div class="status-maintenance">
-                            <div class="status-maintenance-title"><i class="bi bi-tools me-1"></i>Scheduled Maintenance</div>
-                            ${maintenances.slice(0, 2).map(m => `
-                                <div class="status-maintenance-item">${this.esc(m.name)}</div>`).join('')}
-                        </div>` : ''}
-                    <div class="status-card-footer">
-                        <span>View full status page <i class="bi bi-box-arrow-up-right ms-1"></i></span>
-                        ${updatedAt ? `<span>Updated ${updatedAt}</span>` : ''}
-                    </div>
-                </a>
-            </div>`;
+        var self = this;
+        var parts = [];
+
+        parts.push('<div class="col-md-6">');
+        parts.push('<a href="' + svc.statusUrl + '" target="_blank" rel="noopener noreferrer" class="status-service-card">');
+
+        // Header row
+        parts.push('<div class="status-card-top">');
+        parts.push('<div class="d-flex gap-3 align-items-center">');
+        parts.push('<div class="status-service-icon" style="background:' + svc.iconBg + ';color:' + svc.iconColor + ';">');
+        parts.push('<i class="bi ' + svc.icon + '"></i></div>');
+        parts.push('<div><div class="status-service-name">' + svc.name + '</div>');
+        parts.push('<div class="status-service-desc">' + svc.description + '</div></div>');
+        parts.push('</div>');
+        parts.push('<span class="badge ' + badge.cls + ' px-2 py-1" style="font-size:11px;white-space:nowrap;">');
+        parts.push('<i class="bi ' + badge.icon + ' me-1"></i>' + badge.label + '</span>');
+        parts.push('</div>');
+
+        // Status description
+        parts.push('<div class="status-overall-desc" style="color:' + badge.textColor + ';">' + this.esc(desc) + '</div>');
+
+        // Components
+        parts.push('<div class="status-components">');
+        if (components.length > 0) {
+            for (var ci = 0; ci < components.length; ci++) {
+                var c  = components[ci];
+                var cs = self.componentStatus(c.status);
+                parts.push('<div class="status-component-row">');
+                parts.push('<span class="status-component-name">' + self.esc(c.name) + '</span>');
+                parts.push('<span class="status-component-dot ' + cs.dotCls + '">');
+                parts.push('<i class="bi bi-circle-fill" style="font-size:7px;"></i>' + cs.label + '</span>');
+                parts.push('</div>');
+            }
+            if (extra > 0) {
+                parts.push('<div class="text-muted mt-1" style="font-size:12px;">+' + extra + ' more components</div>');
+            }
+        } else if (data === null) {
+            parts.push('<p class="text-muted mb-0" style="font-size:13px;">Status API unreachable \u2014 click to check manually.</p>');
+        }
+        parts.push('</div>');
+
+        // Active incidents
+        if (incidents.length > 0) {
+            parts.push('<div class="status-incidents">');
+            parts.push('<div class="status-incident-title"><i class="bi bi-exclamation-triangle me-1"></i>Active Incidents</div>');
+            var incShow = incidents.slice(0, 3);
+            for (var ii = 0; ii < incShow.length; ii++) {
+                parts.push('<div class="status-incident-item"><i class="bi bi-dot"></i>' + self.esc(incShow[ii].name));
+                parts.push(' <span style="font-size:11px;opacity:.75;">(' + self.esc(incShow[ii].status) + ')</span></div>');
+            }
+            if (incidents.length > 3) {
+                parts.push('<div style="font-size:12px;color:#9a3412;">+' + (incidents.length - 3) + ' more</div>');
+            }
+            parts.push('</div>');
+        }
+
+        // Scheduled maintenance
+        if (maintenances.length > 0) {
+            parts.push('<div class="status-maintenance">');
+            parts.push('<div class="status-maintenance-title"><i class="bi bi-tools me-1"></i>Scheduled Maintenance</div>');
+            var mShow = maintenances.slice(0, 2);
+            for (var mi = 0; mi < mShow.length; mi++) {
+                parts.push('<div class="status-maintenance-item">' + self.esc(mShow[mi].name) + '</div>');
+            }
+            parts.push('</div>');
+        }
+
+        // Footer
+        parts.push('<div class="status-card-footer">');
+        parts.push('<span>View full status page <i class="bi bi-box-arrow-up-right ms-1"></i></span>');
+        if (updatedAt) { parts.push('<span>Updated ' + updatedAt + '</span>'); }
+        parts.push('</div>');
+
+        parts.push('</a></div>');
+        return parts.join('');
     },
 
     renderStatusBanner(results) {
