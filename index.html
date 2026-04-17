@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Innovation Dashboard — PowerShades</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <div class="dashboard-wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><i class="bi bi-robot"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">AI Innovation</div>
+                    <div class="brand-org">PowerShades</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section-label">NAVIGATION</div>
+            <ul class="sidebar-nav">
+                <li>
+                    <a href="#" class="sidebar-link active" data-section="overview">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Overview</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-section="tools">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>Approved Tools</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-section="models">
+                        <i class="bi bi-cpu-fill"></i>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-section="submit">
+                        <i class="bi bi-lightbulb-fill"></i>
+                        <span>Submit Idea</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-section-label mt-3">COMMITTEE</div>
+            <ul class="sidebar-nav">
+                <li>
+                    <a href="#" class="sidebar-link sidebar-link-committee" data-section="committee">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        <span>Review Submissions</span>
+                        <span id="pending-badge" class="badge bg-warning ms-auto" style="display:none;">0</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="text-muted small">AI Innovation Committee</div>
+                <div class="text-muted" style="font-size:11px;">© 2025 PowerShades</div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-wrapper">
+            <header class="main-header">
+                <div class="header-left">
+                    <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <div>
+                        <h1 id="page-title" class="page-title">Overview</h1>
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb mb-0">
+                                <li class="breadcrumb-item text-muted" style="font-size:12px;">AI Innovation Dashboard</li>
+                                <li class="breadcrumb-item active" id="breadcrumb-current" style="font-size:12px;">Overview</li>
+                            </ol>
+                        </nav>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <span class="status-dot status-live"></span>
+                    <span class="text-muted small">Live</span>
+                </div>
+            </header>
+
+            <main class="main-content">
+
+                <!-- ==================== OVERVIEW ==================== -->
+                <section id="section-overview" class="content-section">
+                    <div class="row g-4 mb-4">
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="stat-card stat-card-blue" data-nav="tools">
+                                <div class="stat-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                                <div class="stat-info">
+                                    <div id="stat-tools" class="stat-value">0</div>
+                                    <div class="stat-label">Approved Tools</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="stat-card stat-card-purple" data-nav="models">
+                                <div class="stat-icon"><i class="bi bi-cpu-fill"></i></div>
+                                <div class="stat-info">
+                                    <div id="stat-models" class="stat-value">0</div>
+                                    <div class="stat-label">Active AI Models</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="stat-card stat-card-amber" data-nav="committee">
+                                <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+                                <div class="stat-info">
+                                    <div id="stat-pending" class="stat-value">0</div>
+                                    <div class="stat-label">Pending Review</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="stat-card stat-card-green" data-nav="committee">
+                                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+                                <div class="stat-info">
+                                    <div id="stat-accepted" class="stat-value">0</div>
+                                    <div class="stat-label">Accepted Ideas</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Submissions</h5>
+                                    <a href="#" class="btn btn-sm btn-outline-primary" data-nav="committee">View All</a>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="recent-submissions-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Submissions by Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="status-chart"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TOOLS ==================== -->
+                <section id="section-tools" class="content-section d-none">
+                    <div class="section-header">
+                        <div>
+                            <h2 class="section-title">Approved AI Tools</h2>
+                            <p class="section-subtitle">Reviewed and approved by the AI Innovation Committee for use at PowerShades.</p>
+                        </div>
+                        <div class="section-actions">
+                            <div class="input-group" style="width:240px;">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="tools-search" class="form-control" placeholder="Search tools...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div id="tools-filter-buttons" class="d-flex gap-2 flex-wrap"></div>
+                    </div>
+                    <div id="tools-grid" class="row g-4"></div>
+                </section>
+
+                <!-- ==================== MODELS ==================== -->
+                <section id="section-models" class="content-section d-none">
+                    <div class="section-header">
+                        <div>
+                            <h2 class="section-title">AI Model Status</h2>
+                            <p class="section-subtitle">Current status and usage guidelines for approved AI models.</p>
+                        </div>
+                    </div>
+                    <div class="row g-4 mb-4" id="model-status-summary"></div>
+                    <div id="models-list" class="row g-4"></div>
+                </section>
+
+                <!-- ==================== SUBMIT ==================== -->
+                <section id="section-submit" class="content-section d-none">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-8">
+                            <div class="section-header">
+                                <div>
+                                    <h2 class="section-title">Submit an AI Use Case Idea</h2>
+                                    <p class="section-subtitle">Share how AI could help PowerShades work smarter. The AI Innovation Committee reviews all submissions.</p>
+                                </div>
+                            </div>
+
+                            <div id="submit-success" class="alert alert-success d-none">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <strong>Idea submitted!</strong> The AI Innovation Committee will review your submission.
+                                <button class="btn btn-sm btn-outline-success ms-3" id="submit-another-btn">Submit Another</button>
+                            </div>
+
+                            <div class="card" id="submit-form-card">
+                                <div class="card-body p-4">
+                                    <form id="idea-form" novalidate>
+                                        <h6 class="form-section-title"><i class="bi bi-person-fill me-2"></i>Your Information</h6>
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Your Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="field-name" required placeholder="First Last">
+                                                <div class="invalid-feedback">Please enter your name.</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Email <span class="text-danger">*</span></label>
+                                                <input type="email" class="form-control" id="field-email" required placeholder="you@powershades.com">
+                                                <div class="invalid-feedback">Please enter a valid email.</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Department <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="field-department" required>
+                                                    <option value="">Select department...</option>
+                                                    <option>Engineering</option>
+                                                    <option>Sales</option>
+                                                    <option>Operations</option>
+                                                    <option>Marketing</option>
+                                                    <option>Finance</option>
+                                                    <option>HR</option>
+                                                    <option>Customer Service</option>
+                                                    <option>IT</option>
+                                                    <option>Leadership</option>
+                                                    <option>Other</option>
+                                                </select>
+                                                <div class="invalid-feedback">Please select your department.</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Role / Title</label>
+                                                <input type="text" class="form-control" id="field-role" placeholder="Your job title">
+                                            </div>
+                                        </div>
+
+                                        <hr>
+                                        <h6 class="form-section-title mt-3"><i class="bi bi-lightbulb-fill me-2"></i>Your Idea</h6>
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-12">
+                                                <label class="form-label">Idea Title <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="field-title" required placeholder="A brief, descriptive title for your idea">
+                                                <div class="invalid-feedback">Please enter a title.</div>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Problem Statement <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="field-problem" rows="3" required placeholder="Describe the problem or opportunity you've identified..."></textarea>
+                                                <div class="invalid-feedback">Please describe the problem.</div>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Proposed AI Solution <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="field-solution" rows="4" required placeholder="How could AI help solve this? What would the solution look like?"></textarea>
+                                                <div class="invalid-feedback">Please describe your proposed solution.</div>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Expected Benefits <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="field-benefits" rows="3" required placeholder="What outcomes do you expect? Time savings, cost reduction, quality improvements..."></textarea>
+                                                <div class="invalid-feedback">Please describe the expected benefits.</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Suggested AI Tools / Models</label>
+                                                <input type="text" class="form-control" id="field-tools" placeholder="e.g. Claude, Copilot, GPT-4...">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Estimated Effort</label>
+                                                <select class="form-select" id="field-effort">
+                                                    <option value="">Unknown / Not sure</option>
+                                                    <option value="low">Low — Quick win, minimal setup</option>
+                                                    <option value="medium">Medium — Some integration needed</option>
+                                                    <option value="high">High — Significant development required</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Data / Privacy Considerations</label>
+                                                <textarea class="form-control" id="field-data" rows="2" placeholder="Any data privacy or security concerns? What data would AI need access to?"></textarea>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex gap-3">
+                                            <button type="submit" class="btn btn-primary px-4">
+                                                <i class="bi bi-send-fill me-2"></i>Submit Idea
+                                            </button>
+                                            <button type="reset" class="btn btn-outline-secondary">Clear Form</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== COMMITTEE ==================== -->
+                <section id="section-committee" class="content-section d-none">
+                    <!-- Auth gate -->
+                    <div id="committee-gate" class="row justify-content-center">
+                        <div class="col-md-5">
+                            <div class="card text-center py-4">
+                                <div class="card-body">
+                                    <div class="gate-icon mb-3"><i class="bi bi-shield-lock-fill"></i></div>
+                                    <h4 class="mb-2">Committee Access Required</h4>
+                                    <p class="text-muted mb-4">This area is restricted to AI Innovation Committee members.</p>
+                                    <div class="mb-3 text-start">
+                                        <input type="password" id="committee-password" class="form-control form-control-lg" placeholder="Enter access password" autocomplete="current-password">
+                                        <div id="password-error" class="text-danger small mt-2 d-none">
+                                            <i class="bi bi-exclamation-circle me-1"></i>Incorrect password. Please try again.
+                                        </div>
+                                    </div>
+                                    <button id="committee-login-btn" class="btn btn-primary btn-lg w-100">
+                                        <i class="bi bi-unlock-fill me-2"></i>Access Committee Review
+                                    </button>
+                                    <div class="mt-3 p-2 rounded" style="background:#f9fafb;font-size:12px;color:#6b7280;">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        POC demo password: <code>committee</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Committee dashboard (shown after auth) -->
+                    <div id="committee-dashboard" class="d-none">
+                        <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+                            <div>
+                                <h2 class="section-title">Committee Review Dashboard</h2>
+                                <p class="section-subtitle">Review and action submitted AI use case ideas.</p>
+                            </div>
+                            <button id="committee-logout-btn" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-lock-fill me-1"></i>Lock
+                            </button>
+                        </div>
+
+                        <ul class="nav nav-tabs mb-4" id="committee-tabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#" data-filter="pending">
+                                    Pending <span id="tab-count-pending" class="badge bg-warning ms-1">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-filter="accepted">
+                                    Accepted <span id="tab-count-accepted" class="badge bg-success ms-1">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-filter="deferred">
+                                    Deferred <span id="tab-count-deferred" class="badge bg-info ms-1">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-filter="declined">
+                                    Declined <span id="tab-count-declined" class="badge bg-danger ms-1">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-filter="all">
+                                    All <span id="tab-count-all" class="badge bg-secondary ms-1">0</span>
+                                </a>
+                            </li>
+                        </ul>
+
+                        <div id="committee-submissions-list"></div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Review Action Modal -->
+    <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalTitle" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reviewModalTitle">Review Submission</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3 p-3 rounded" style="background:#f9fafb;">
+                        <strong id="review-submission-title" class="text-dark"></strong>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Your Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="reviewer-name" placeholder="Committee member name">
+                        <div class="invalid-feedback">Please enter your name.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" id="review-notes-label">Notes / Feedback</label>
+                        <textarea class="form-control" id="review-notes" rows="4" placeholder="Provide feedback or reasoning for this decision..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn" id="review-confirm-btn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
